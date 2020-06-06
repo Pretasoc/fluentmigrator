@@ -19,6 +19,8 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Threading;
+using System.Threading.Tasks;
 
 using FluentMigrator.Expressions;
 
@@ -31,7 +33,7 @@ namespace FluentMigrator.Runner.Processors
     /// <summary>
     /// Minimalist base class for a processor.
     /// </summary>
-    public abstract class ProcessorBase : IMigrationProcessor
+    public abstract class ProcessorBase : IMigrationProcessor, IAsyncMigrationProcessor
     {
         protected internal readonly IMigrationGenerator Generator;
 
@@ -76,6 +78,596 @@ namespace FluentMigrator.Runner.Processors
         /// </summary>
         [NotNull]
         protected ProcessorOptions Options { get; }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> ExistsAsync(
+            string template,
+            CancellationToken cancellationToken = default,
+            params object[] args)
+        {
+            try
+            {
+                var result = Exists(template, args);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                BeginTransaction();
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                CommitTransaction();
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ExecuteAsync(string sql, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(
+                    sql.Replace("{", "{{").Replace("}", "}}"),
+                    cancellationToken,
+                    Array.Empty<object>());
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task ExecuteAsync(
+            string template,
+            CancellationToken cancellationToken = default,
+            params object[] args)
+        {
+            try
+            {
+                Execute(template, args);
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(CreateSchemaExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteSchemaExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(AlterTableExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(AlterColumnExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(CreateTableExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(CreateColumnExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteTableExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteColumnExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(CreateForeignKeyExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteForeignKeyExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(CreateIndexExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteIndexExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(RenameTableExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(RenameColumnExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(InsertDataExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(
+            AlterDefaultConstraintExpression expression,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task ProcessAsync(PerformDBOperationExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                Process(expression);
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteDataExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(UpdateDataExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(AlterSchemaExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(CreateSequenceExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteSequenceExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(CreateConstraintExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(DeleteConstraintExpression expression, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public Task ProcessAsync(
+            DeleteDefaultConstraintExpression expression,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExecuteAsync(Generator.Generate(expression), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        protected virtual Task ProcessAsync(string sql, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                Process(sql);
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<DataSet> ReadAsync(
+            string template,
+            CancellationToken cancellationToken = default,
+            params object[] args)
+        {
+            try
+            {
+                DataSet result = Read(template, args);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<DataSet>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<DataSet> ReadTableDataAsync(
+            string schemaName,
+            string tableName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                DataSet result = ReadTableData(schemaName, tableName);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<DataSet>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                RollbackTransaction();
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> ColumnExistsAsync(
+            string schemaName,
+            string tableName,
+            string columnName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = ColumnExists(schemaName, tableName, columnName);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> ConstraintExistsAsync(
+            string schemaName,
+            string tableName,
+            string constraintName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = ConstraintExists(schemaName, tableName, constraintName);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> DefaultValueExistsAsync(
+            string schemaName,
+            string tableName,
+            string columnName,
+            object defaultValue,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = DefaultValueExists(schemaName, tableName, columnName, defaultValue);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> IndexExistsAsync(
+            string schemaName,
+            string tableName,
+            string indexName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = IndexExists(schemaName, tableName, indexName);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> SchemaExistsAsync(string schemaName, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var result = SchemaExists(schemaName);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> SequenceExistsAsync(
+            string schemaName,
+            string sequenceName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = SequenceExists(schemaName, sequenceName);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual Task<bool> TableExistsAsync(
+            string schemaName,
+            string tableName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = TableExists(schemaName, tableName);
+                return Task.FromResult(result);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
 
         public virtual void Process(CreateSchemaExpression expression)
         {
