@@ -21,6 +21,8 @@ using System.Data.Common;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 using FluentMigrator.Expressions;
 using FluentMigrator.Runner.BatchParser;
@@ -35,6 +37,7 @@ using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.SqlServer.Server;
 
 namespace FluentMigrator.Runner.Processors.SqlServer
 {
@@ -51,7 +54,7 @@ namespace FluentMigrator.Runner.Processors.SqlServer
         private const string SEQUENCES_EXISTS = "SELECT 1 WHERE EXISTS (SELECT * FROM INFORMATION_SCHEMA.SEQUENCES WHERE SEQUENCE_SCHEMA = '{0}' AND SEQUENCE_NAME = '{1}' )";
         private const string DEFAULTVALUE_EXISTS = "SELECT 1 WHERE EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '{0}' AND TABLE_NAME = '{1}' AND COLUMN_NAME = '{2}' AND COLUMN_DEFAULT LIKE '{3}')";
 
-        public override string DatabaseType { get;}
+        public override string DatabaseType { get; }
 
         public override IList<string> DatabaseTypeAliases { get; }
 
@@ -120,6 +123,19 @@ namespace FluentMigrator.Runner.Processors.SqlServer
             return Exists(SqlSchemaExists, SafeSchemaName(schemaName));
         }
 
+        /// <inheritdoc />
+        public override Task<bool> SchemaExistsAsync(string schemaName, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return ExistsAsync(SqlSchemaExists, cancellationToken, SafeSchemaName(schemaName));
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
         public override bool TableExists(string schemaName, string tableName)
         {
             try
@@ -134,10 +150,50 @@ namespace FluentMigrator.Runner.Processors.SqlServer
             return false;
         }
 
+        public override async Task<bool> TableExistsAsync(string schemaName, string tableName, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExistsAsync(
+                        TABLE_EXISTS,
+                        cancellationToken,
+                        SafeSchemaName(schemaName),
+                        FormatHelper.FormatSqlEscape(tableName))
+                    .ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+            return false;
+        }
+
         public override bool ColumnExists(string schemaName, string tableName, string columnName)
         {
             return Exists(COLUMN_EXISTS, SafeSchemaName(schemaName),
                 FormatHelper.FormatSqlEscape(tableName), FormatHelper.FormatSqlEscape(columnName));
+        }
+
+        /// <inheritdoc />
+        public override Task<bool> ColumnExistsAsync(
+            string schemaName,
+            string tableName,
+            string columnName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExistsAsync(
+                    COLUMN_EXISTS,
+                    cancellationToken,
+                    SafeSchemaName(schemaName),
+                    FormatHelper.FormatSqlEscape(tableName),
+                    FormatHelper.FormatSqlEscape(columnName));
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
         }
 
         public override bool ConstraintExists(string schemaName, string tableName, string constraintName)
@@ -146,16 +202,77 @@ namespace FluentMigrator.Runner.Processors.SqlServer
                 FormatHelper.FormatSqlEscape(tableName), FormatHelper.FormatSqlEscape(constraintName));
         }
 
+        /// <inheritdoc />
+        public override Task<bool> ConstraintExistsAsync(
+            string schemaName,
+            string tableName,
+            string constraintName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExistsAsync(
+                    CONSTRAINT_EXISTS,
+                    cancellationToken,
+                    SafeSchemaName(schemaName),
+                    FormatHelper.FormatSqlEscape(tableName),
+                    FormatHelper.FormatSqlEscape(constraintName));
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
         public override bool IndexExists(string schemaName, string tableName, string indexName)
         {
             return Exists(INDEX_EXISTS,
                 FormatHelper.FormatSqlEscape(indexName), SafeSchemaName(schemaName), FormatHelper.FormatSqlEscape(tableName));
         }
 
+        /// <inheritdoc />
+        public override Task<bool> IndexExistsAsync(
+            string schemaName,
+            string tableName,
+            string indexName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExistsAsync(
+                    INDEX_EXISTS,
+                    cancellationToken,
+                    FormatHelper.FormatSqlEscape(indexName),
+                    SafeSchemaName(schemaName),
+                    FormatHelper.FormatSqlEscape(tableName));
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
         public override bool SequenceExists(string schemaName, string sequenceName)
         {
             return Exists(SEQUENCES_EXISTS, SafeSchemaName(schemaName),
                 FormatHelper.FormatSqlEscape(sequenceName));
+        }
+
+        /// <inheritdoc />
+        public override Task<bool> SequenceExistsAsync(string schemaName, string sequenceName, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ExistsAsync(
+                    SEQUENCES_EXISTS,
+                    cancellationToken,
+                    SafeSchemaName(schemaName),
+                    FormatHelper.FormatSqlEscape(sequenceName));
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
         }
 
         public override bool DefaultValueExists(string schemaName, string tableName, string columnName, object defaultValue)
@@ -166,9 +283,47 @@ namespace FluentMigrator.Runner.Processors.SqlServer
                 FormatHelper.FormatSqlEscape(columnName), defaultValueAsString);
         }
 
+        /// <inheritdoc />
+        public override Task<bool> DefaultValueExistsAsync(
+            string schemaName,
+            string tableName,
+            string columnName,
+            object defaultValue,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var defaultValueAsString = string.Format("%{0}%", FormatHelper.FormatSqlEscape(defaultValue.ToString()));
+                return ExistsAsync(
+                    DEFAULTVALUE_EXISTS,
+                    cancellationToken,
+                    SafeSchemaName(schemaName),
+                    FormatHelper.FormatSqlEscape(tableName),
+                    FormatHelper.FormatSqlEscape(columnName),
+                    defaultValueAsString);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<bool>(e);
+            }
+        }
+
         public override void Execute(string template, params object[] args)
         {
             Process(string.Format(template, args));
+        }
+
+        /// <inheritdoc />
+        public override Task ExecuteAsync(string template, CancellationToken cancellationToken = default, params object[] args)
+        {
+            try
+            {
+                return ProcessAsync(string.Format(template, args), cancellationToken);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
         }
 
         public override bool Exists(string template, params object[] args)
@@ -182,9 +337,34 @@ namespace FluentMigrator.Runner.Processors.SqlServer
             }
         }
 
+        /// <inheritdoc />
+        public override async Task<bool> ExistsAsync(string template, CancellationToken cancellationToken = default, params object[] args)
+        {
+            await EnsureConnectionIsOpenAsync(cancellationToken).ConfigureAwait(false);
+
+            using (var command = CreateCommand(string.Format(template, args)))
+            {
+                var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                return DBNull.Value != result && Convert.ToInt32(result) == 1;
+            }
+        }
+
         public override DataSet ReadTableData(string schemaName, string tableName)
         {
             return Read("SELECT * FROM [{0}].[{1}]", SafeSchemaName(schemaName), tableName);
+        }
+
+        /// <inheritdoc />
+        public override Task<DataSet> ReadTableDataAsync(string schemaName, string tableName, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ReadAsync("SELECT * FROM [{0}].[{1}]", cancellationToken, SafeSchemaName(schemaName), tableName);
+            }
+            catch (Exception e)
+            {
+                return Task.FromException<DataSet>(e);
+            }
         }
 
         public override DataSet Read(string template, params object[] args)
@@ -193,6 +373,18 @@ namespace FluentMigrator.Runner.Processors.SqlServer
 
             using (var command = CreateCommand(string.Format(template, args)))
             using (var reader = command.ExecuteReader())
+            {
+                return reader.ReadDataSet();
+            }
+        }
+
+        /// <inheritdoc />
+        public override async Task<DataSet> ReadAsync(string template, CancellationToken cancellationToken = default, params object[] args)
+        {
+            await EnsureConnectionIsOpenAsync(cancellationToken).ConfigureAwait(false);
+
+            using (var command = CreateCommand(string.Format(template, args)))
+            using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             {
                 return reader.ReadDataSet();
             }
@@ -211,11 +403,32 @@ namespace FluentMigrator.Runner.Processors.SqlServer
 
             if (ContainsGo(sql))
             {
-                ExecuteBatchNonQuery(sql);
+                ExecuteBatchNonQuery(sql, CancellationToken.None, sync: true).GetAwaiter().GetResult();
             }
             else
             {
-                ExecuteNonQuery(sql);
+                ExecuteNonQuery(sql, CancellationToken.None, sync: true).GetAwaiter().GetResult();
+            }
+        }
+
+        protected override async Task ProcessAsync(string sql, CancellationToken cancellationToken = default)
+        {
+            Logger.LogSql(sql);
+
+            if (Options.PreviewOnly || string.IsNullOrEmpty(sql))
+            {
+                return;
+            }
+
+            await EnsureConnectionIsOpenAsync(cancellationToken).ConfigureAwait(false);
+
+            if (ContainsGo(sql))
+            {
+                await ExecuteBatchNonQuery(sql, cancellationToken, false).ConfigureAwait(false);
+            }
+            else
+            {
+                await ExecuteNonQuery(sql, cancellationToken, sync: false);
             }
         }
 
@@ -232,13 +445,22 @@ namespace FluentMigrator.Runner.Processors.SqlServer
             return containsGo;
         }
 
-        private void ExecuteNonQuery(string sql)
+        private async Task ExecuteNonQuery(string sql, CancellationToken cancellationToken, bool sync)
         {
             using (var command = CreateCommand(sql))
             {
                 try
                 {
-                    command.ExecuteNonQuery();
+                    if (sync)
+                    {
+                        // If the sync flag is given, we must execute all operation synchronously
+                        // ReSharper disable once MethodHasAsyncOverloadWithCancellation
+                        command.ExecuteNonQuery();
+                    }
+                    else
+                    {
+                        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -254,33 +476,26 @@ namespace FluentMigrator.Runner.Processors.SqlServer
             }
         }
 
-        private void ExecuteBatchNonQuery(string sql)
+        private async Task ExecuteBatchNonQuery(string sql, CancellationToken cancellationToken, bool sync)
         {
             var sqlBatch = string.Empty;
-
+            ;
             try
             {
+                GoSearcher.GoSearcherParameters goParameters = null;
                 var parser = _serviceProvider?.GetService<SqlServerBatchParser>() ?? new SqlServerBatchParser();
                 parser.SqlText += (sender, args) => sqlBatch = args.SqlText.Trim();
                 parser.SpecialToken += (sender, args) =>
                 {
-                    if (string.IsNullOrEmpty(sqlBatch))
+                    if (goParameters != null)
                     {
                         return;
                     }
 
                     if (args.Opaque is GoSearcher.GoSearcherParameters goParams)
                     {
-                        using (var command = CreateCommand(sqlBatch))
-                        {
-                            for (var i = 0; i != goParams.Count; ++i)
-                            {
-                                command.ExecuteNonQuery();
-                            }
-                        }
+                        goParameters = goParams;
                     }
-
-                    sqlBatch = null;
                 };
 
                 using (var source = new TextReaderSource(new StringReader(sql), true))
@@ -288,11 +503,20 @@ namespace FluentMigrator.Runner.Processors.SqlServer
                     parser.Process(source, stripComments: Options.StripComments);
                 }
 
-                if (!string.IsNullOrEmpty(sqlBatch))
+                using (var command = CreateCommand(sqlBatch))
                 {
-                    using (var command = CreateCommand(sqlBatch))
+                    for (var i = 0; i != (goParameters?.Count ?? 1); ++i)
                     {
-                        command.ExecuteNonQuery();
+                        if (sync)
+                        {
+                            // If the sync flag is given, we must execute all operation synchronously
+                            // ReSharper disable once MethodHasAsyncOverloadWithCancellation
+                            command.ExecuteNonQuery();
+                        }
+                        else
+                        {
+                            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                        }
                     }
                 }
             }
@@ -306,6 +530,7 @@ namespace FluentMigrator.Runner.Processors.SqlServer
 
                     throw new Exception(message.ToString(), ex);
                 }
+
             }
         }
 
@@ -319,6 +544,21 @@ namespace FluentMigrator.Runner.Processors.SqlServer
             }
 
             EnsureConnectionIsOpen();
+
+            expression.Operation?.Invoke(Connection, Transaction);
+        }
+
+        /// <inheritdoc />
+        public override async Task ProcessAsync(PerformDBOperationExpression expression, CancellationToken cancellationToken = default)
+        {
+            Logger.LogSay("Performing DB Operation");
+
+            if (Options.PreviewOnly)
+            {
+                return;
+            }
+
+            await EnsureConnectionIsOpenAsync(cancellationToken).ConfigureAwait(false);
 
             expression.Operation?.Invoke(Connection, Transaction);
         }
