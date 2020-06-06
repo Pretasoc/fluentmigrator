@@ -20,6 +20,8 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
 using FluentMigrator.Runner.Initialization;
 
@@ -95,6 +97,17 @@ namespace FluentMigrator.Runner.Processors
         }
 
         /// <summary>
+        /// Ensure that the connection is open.
+        /// </summary>
+        protected virtual async Task EnsureConnectionIsOpenAsync(CancellationToken cancellationToken = default)
+        {
+            if (Connection.State != ConnectionState.Open)
+            {
+                await Connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        
+        /// <summary>
         /// Ensure that the connection is closed.
         /// </summary>
         protected virtual void EnsureConnectionIsClosed()
@@ -118,7 +131,7 @@ namespace FluentMigrator.Runner.Processors
 
             Transaction = Connection.BeginTransaction();
         }
-
+        
         /// <summary>
         /// Rollback of the current transaction.
         /// </summary>
